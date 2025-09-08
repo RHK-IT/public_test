@@ -1,0 +1,41 @@
+name: Create PR from master to develop
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+jobs:
+  create-pr:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if PR from master to develop already exists
+        id: check_pr
+        run: |
+          prs=$(gh pr list --base develop --head master --state open --json number)
+          if [[ "$prs" == "[]" ]]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR from master to develop
+        if: steps.check_pr.outputs.exists == 'false'
+        run: |
+          gh pr create --title "Sync master to develop" --body "Automated PR to sync changes from master to develop" --base develop --head master
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
